@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
+import argparse
 import curses
 import curses.textpad
-import re
-import sqlite3
 import subprocess
-import argparse
 
 from configure_db import open_db
 
@@ -44,7 +42,10 @@ def handle_problem(screen, db, problem):
     window = make_choice_window(descr)
     choices = [False for cl in problem_classes]
     cur = db.cursor()
-    cur.execute('SELECT problem_class FROM classified_problem WHERE file = ? AND line = ?',
+    cur.execute("""SELECT group_concat(problem_class.name)
+        FROM problem_belongs_to_class INNER JOIN problem_class
+          ON problem_class.id = class_id
+        WHERE file = ? AND line = ?""",
                 (problem['file'], problem['line']))
     existing_classifier = cur.fetchone()
     if existing_classifier:
@@ -73,11 +74,14 @@ def handle_problem(screen, db, problem):
             choices.append(True)
             window.erase()
             window = make_choice_window(descr)
-    selected_classes = list(map(lambda x: x[0], filter(lambda x: x[1], zip(problem_classes, choices))))
-    joined_class = ','.join(selected_classes)
-    cur.execute('DELETE FROM classified_problem WHERE file = ? AND line = ?', (problem['file'], problem['line']))
-    cur.execute('INSERT INTO classified_problem(file, line, problem_class) VALUES (?, ?, ?)',
-                (problem['file'], problem['line'], joined_class))
+    selected_classes = list(
+        map(lambda x: (problem['file'], problem['line'], x[0]), filter(lambda x: x[1], zip(problem_classes, choices))))
+    cur.execute('DELETE FROM problem_belongs_to_class WHERE file = ? AND line = ?', (problem['file'], problem['line']))
+    cur.executemany("""INSERT INTO problem_belongs_to_class(file, line, class_id)
+                   SELECT ?, ?, problem_class.id
+                   FROM problem_class
+                   WHERE problem_class.name = ?""",
+                    selected_classes)
     db.commit()
     cur.close()
 
@@ -91,9 +95,9 @@ def main(screen):
     editwin = curses.newwin(1, 40, curses.LINES - 1, 0)
     input_box = curses.textpad.Textbox(editwin)
     input_box.stripspaces = True
-    cur.execute('CREATE TABLE IF NOT EXISTS classified_problem(file TEXT, line TEXT, problem_class TEXT)')
-    cur.execute("SELECT DISTINCT problem_class FROM classified_problem WHERE NOT problem_class = ''")
-    problem_classes = list(set().union(*map(lambda x: map(lambda s: s.strip(), x[0].split(',')), cur.fetchall())))
+    cur.execute("SELECT group_concat(problem_class.name) as all_classes FROM problem_class")
+    existing_classes = cur.fetchone()[0]
+    problem_classes = existing_classes.split(',') if existing_classes != '' else problem_classes
     for folder in folders:
         screen.clear()
         screen.refresh()
