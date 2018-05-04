@@ -42,13 +42,13 @@ def handle_problem(screen, db, problem):
     window = make_choice_window(descr)
     choices = [False for cl in problem_classes]
     cur = db.cursor()
-    cur.execute("""SELECT group_concat(problem_class.name)
+    cur.execute("""SELECT group_concat(problem_class.name) AS problem_classes
         FROM problem_belongs_to_class INNER JOIN problem_class
           ON problem_class.id = class_id
         WHERE file = ? AND line = ?""",
                 (problem['file'], problem['line']))
     existing_classifier = cur.fetchone()
-    if existing_classifier:
+    if existing_classifier is not None:
         if options.skip_classified:
             return
         for i in range(len(choices)):
@@ -69,8 +69,10 @@ def handle_problem(screen, db, problem):
             choices[ix] = not choices[ix]
         elif c == ord('a'):
             input_box.edit()
-            new_class = input_box.gather()
-            problem_classes.append(new_class.strip())
+            new_class = input_box.gather().strip()
+            problem_classes.append(new_class)
+            cur.execute("INSERT INTO problem_class(name) VALUES (?)", new_class)
+            cur.commit()
             choices.append(True)
             window.erase()
             window = make_choice_window(descr)
