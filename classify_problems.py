@@ -48,7 +48,7 @@ def handle_problem(screen, db, problem):
         WHERE file = ? AND line = ?""",
                 (problem['file'], problem['line']))
     existing_classifier = cur.fetchone()
-    if existing_classifier is not None:
+    if existing_classifier[0] is not None:
         if options.skip_classified:
             return
         for i in range(len(choices)):
