@@ -71,7 +71,7 @@ def handle_problem(screen, db, problem):
             input_box.edit()
             new_class = input_box.gather().strip()
             problem_classes.append(new_class)
-            cur.execute("INSERT INTO problem_class(name) VALUES (?)", new_class)
+            cur.execute("INSERT INTO problem_class(name) VALUES (?)", (new_class,))
             cur.commit()
             choices.append(True)
             window.erase()
@@ -109,7 +109,10 @@ def main(screen):
             WHERE
                 get_folder(file) = ?
                 AND file LIKE ('%' || ? || '%')
-                AND description LIKE ('%' || ? || '%')""",  # Inelegant, but should work for our purposes
+                AND description LIKE ('%' || ? || '%')
+            ORDER BY
+              file ASC,
+              line ASC""",
                     (folder, options.file, options.description))
         i = 0
         problems = cur.fetchall()
