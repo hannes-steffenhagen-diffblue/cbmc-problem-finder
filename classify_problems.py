@@ -72,7 +72,6 @@ def handle_problem(screen, db, problem):
             new_class = input_box.gather().strip()
             problem_classes.append(new_class)
             cur.execute("INSERT INTO problem_class(name) VALUES (?)", (new_class,))
-            cur.commit()
             choices.append(True)
             window.erase()
             window = make_choice_window(descr)
